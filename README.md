@@ -2,4 +2,4 @@
 
 ## First step
 
-[...] Draw two shapes moving and bouncing with corners of a square with raylib.
+[X] Draw two shapes moving and bouncing with corners of a square with raylib.
