@@ -7,24 +7,29 @@
 #define HEIGHT 600 // panel height
 #define H_WIDTH WIDTH/2.0f // half width
 #define H_HEIGHT HEIGHT/2.0f // half height
-#define PART_COUNT 20*1024 // amount of particles
-#define RADIUS 50.0f 
 #define HOLLOW_PURPLE (Color) { 192, 0, 192, 255 }
+#define PART_COUNT 24*1024 // amount of particles
+#define INCREMENT 0.05f
+#define SPEED 2
+#define RADIUS 50.0f 
+#define DELAY 10.0f
 
 typedef struct {
 	Vector2 pos; // position
-	Vector2 vel;
+	Vector2 vel; // velocity
 	Color color;
 } Particle;
 
-// generates all particles initial position
+// generates the initial position of all particles
 Particle gen_particles(Particle particle, Vector2 center, Color color);
 Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value);
-Vector2 get_normal(Vector2 pos, Vector2 otherPos);
+// generates the normal vector from a given vector
+Vector2 get_normal(Vector2 pos, Vector2 center_pos);
 Vector2 do_friction(Vector2 vel, float amount);
-Vector2 move(Vector2 pos, Vector2 vel, int mode);
-float get_dist(Vector2 pos, Vector2 otherPos);
-// free all mememory
+Vector2 move(Vector2 pos, Vector2 vel, float increment);
+// using Pitagoras theorem it gets the distance between two positions (x, y)
+float get_dist(Vector2 pos, Vector2 center_pos);
+// free all memory
 void free_all(Particle** p, Particle* c);
 // main draw function
 void draw(Particle** p, Particle* c);
@@ -64,16 +69,34 @@ int main()
 
 Particle gen_particles(Particle particle, Vector2 center, Color color)
 {
+	// generate a random angle between 0 and 2*PI
 	float angle = ((float)rand() / RAND_MAX) * 2.0f * PI;
+	// generate a random distance between 0 and RADIUS
 	float distance = ((float)rand() / RAND_MAX) * RADIUS;
 
+	// convert polar to rectangular coordinates
 	particle.pos.x = center.x + distance * cos(angle);
 	particle.pos.y = center.y + distance * sin(angle);
-    particle.vel.x = GetRandomValue(-100, 100) / 10000.f;
-    particle.vel.y = GetRandomValue(-100, 100) / 10000.f;
+
+	// generate a random balue between -1000 and 1000 an then is divided
+	// by 100000 to get numbers between -0.01 and 0.01 which is the velocity 
+	// at which the particle will move
+    particle.vel.x = GetRandomValue(-1000, 1000) / 100000.0f;
+    particle.vel.y = GetRandomValue(-1000, 1000) / 100000.0f;
 	particle.color = color;
 
 	return particle;
+}
+
+Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value)
+{
+    float dist = fmax(get_dist(pos, center_pos), value); // gets the max value between get_dist() and the given value
+    Vector2 normal = get_normal(pos, center_pos);
+
+    vel.x -= normal.x/dist;
+    vel.y -= normal.y/dist;
+
+	return vel;
 }
 
 Vector2 do_friction(Vector2 vel, float amount)
@@ -84,43 +107,30 @@ Vector2 do_friction(Vector2 vel, float amount)
 	return vel;
 }
 
-float get_dist(Vector2 pos, Vector2 otherPos) {
-    const float dx = pos.x - otherPos.x;
-    const float dy = pos.y - otherPos.y;
+float get_dist(Vector2 pos, Vector2 center_pos) {
+    const float dx = pos.x - center_pos.x;
+    const float dy = pos.y - center_pos.y;
 
     return sqrt((dx*dx) + (dy*dy));
 }
 
-Vector2 get_normal(Vector2 pos, Vector2 otherPos) {
-    float dist = get_dist(pos, otherPos);
+Vector2 get_normal(Vector2 pos, Vector2 center_pos) {
+	// gets the distance between one position and the center
+    float dist = get_dist(pos, center_pos);
 
     if (dist == 0.0f) dist = 1;
 
-    const float dx = pos.x - otherPos.x;
-    const float dy = pos.y - otherPos.y;
-    Vector2 normal = (Vector2){dx*(1/dist), dy*(1/dist)};
+    const float dx = pos.x - center_pos.x;
+    const float dy = pos.y - center_pos.y;
+    Vector2 normal = (Vector2){ dx / dist, dy / dist};
 
     return normal;
 }
 
-Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value)
-{
-    float dist = fmax(get_dist(pos, center_pos), value);
-    Vector2 normal = get_normal(pos, center_pos);
-
-    vel.x -= normal.x/dist;
-    vel.y -= normal.y/dist;
-
-	return vel;
-}
-
-Vector2 move(Vector2 pos, Vector2 vel, int mode) {
-	if (mode == 1)
-		pos.x += vel.x-0.05f;
-
-	if (mode == 0)
-		pos.x += vel.x+0.05f;
-
+Vector2 move(Vector2 pos, Vector2 vel, float increment) {
+	// adds the increment value to get a better collision
+	// animation and also to correct it
+	pos.x += vel.x + increment;
 	pos.y += vel.y;
 
     if (pos.x < 0) pos.x += WIDTH;
@@ -133,95 +143,114 @@ Vector2 move(Vector2 pos, Vector2 vel, int mode) {
 
 void draw(Particle** p, Particle* c)
 {
-	InitWindow(WIDTH, HEIGHT, "Window");
+	int centers_are_different = 1;
+//	int frame_number = 1;
+//
+	InitWindow(WIDTH, HEIGHT, "Hollow Purple Simulation");
+	SetTargetFPS(100); // fps
 
-	SetTargetFPS(100);
-
-	int flag = 1;
-//	int frameNumber = 1;
-
-	while (!WindowShouldClose())
+	while (!WindowShouldClose()) // main draw loop
 	{
+		// i did this for "better" readability
+		Particle* p1 = p[0];
+		Particle* p2 = p[1];
+
+		// the initial circle shape formation
 		for (int i = 0; i < PART_COUNT; ++i)
 		{
-			p[0][i].vel = attract(p[0][i].pos, p[0][i].vel, c[0].pos, 0.2f);
-			p[1][i].vel = attract(p[1][i].pos, p[1][i].vel, c[1].pos, 0.2f);
+			p1[i].vel = attract(p1[i].pos, p1[i].vel, c[0].pos, 0.2f);
+			p2[i].vel = attract(p2[i].pos, p2[i].vel, c[1].pos, 0.2f);
 
-			p[0][i].vel = do_friction(p[0][i].vel, 0.9f);
-			p[1][i].vel = do_friction(p[1][i].vel, 0.9f);
+			p1[i].vel = do_friction(p1[i].vel, 0.9f);
+			p2[i].vel = do_friction(p2[i].vel, 0.9f);
 
-			p[0][i].pos = move(p[0][i].pos, p[0][i].vel, 1);
-			p[1][i].pos = move(p[1][i].pos, p[1][i].vel, 0);
+			p1[i].pos = move(p1[i].pos, p1[i].vel, -INCREMENT);
+			p2[i].pos = move(p2[i].pos, p2[i].vel, INCREMENT);
 		}
 
 		BeginDrawing();
-		ClearBackground(BLACK);
+		ClearBackground(BLACK); // background color
 
 		for (int i = 0; i < PART_COUNT; ++i)
 		{
-			DrawPixelV(p[0][i].pos, p[0][i].color);
-			DrawPixelV(p[1][i].pos, p[1][i].color);
+			DrawPixelV(p1[i].pos, p1[i].color);
+			DrawPixelV(p2[i].pos, p2[i].color);
 		}
 
 		for (int i = 0; i < 2; ++i)
 			DrawPixelV(c[i].pos, c[i].color);
 		
-		if (flag)
+		// this is the moving part that stops when centers_are_different is false
+		// or in other words when both centers are in the same position
+		if (centers_are_different)
 		{
 			for (int i = 0; i < PART_COUNT; ++i)
 			{
-				p[0][i].pos.x += 2;
-				p[1][i].pos.x -= 2;
+				p1[i].pos.x += SPEED;
+				p2[i].pos.x -= SPEED;
 			}
 
-			c[0].pos.x += 2;
-			c[1].pos.x -= 2;
+			c[0].pos.x += SPEED;
+			c[1].pos.x -= SPEED;
 		}
 
-		if (c[0].pos.x+10.0f == c[1].pos.x-10.0f)
+		// the DELAY is for a better collision animation by starting
+		// the collision earlier, it has the effect of a real life collision
+		if (c[0].pos.x + DELAY == c[1].pos.x - DELAY)
 		{
-			c[0].pos.x += 10.0f;
-			c[1].pos.x -= 10.0f;
+			centers_are_different = 0; // now that this is false, both shapes stop moving to the center
+	
+			// fixes the 10.0f delay from the previous if statement
+			c[0].pos.x += DELAY;
+			c[1].pos.x -= DELAY;
 
 			for (int i = 0; i < PART_COUNT; ++i)
 			{
-				DrawPixelV(p[0][i].pos, HOLLOW_PURPLE);
-				DrawPixelV(p[1][i].pos, HOLLOW_PURPLE);
+				// the color is changed from blue and red to purple for both
+				DrawPixelV(p1[i].pos, HOLLOW_PURPLE);
+				DrawPixelV(p2[i].pos, HOLLOW_PURPLE);
+
+				// this is also a circle shape formation but now with the two
+				// initial shapes that became "just one" (not really, but
+				// it looks like that)
+				p1[i].vel = attract(p1[i].pos, p1[i].vel, c[0].pos, 0.1f);
+				p2[i].vel = attract(p2[i].pos, p2[i].vel, c[1].pos, 0.1f);
+
+				p1[i].vel = do_friction(p1[i].vel, 0.9f);
+				p2[i].vel = do_friction(p2[i].vel, 0.9f);
+
+				p1[i].pos = move(p1[i].pos, p1[i].vel, INCREMENT);
+				p2[i].pos = move(p2[i].pos, p2[i].vel, -INCREMENT);
 			}
-			flag = 0;
 
-			for (int i = 0; i < PART_COUNT; ++i)
-			{
-				p[0][i].vel = attract(p[0][i].pos, p[0][i].vel, c[0].pos, 0.15f);
-				p[1][i].vel = attract(p[1][i].pos, p[1][i].vel, c[1].pos, 0.15f);
-
-				p[0][i].vel = do_friction(p[0][i].vel, 0.99f);
-				p[1][i].vel = do_friction(p[1][i].vel, 0.99f);
-
-				p[0][i].pos = move(p[0][i].pos, p[0][i].vel, 0);
-				p[1][i].pos = move(p[1][i].pos, p[1][i].vel, 1);
-			}
-
-			c[0].pos.x -= 10.0f;
-			c[1].pos.x += 10.0f;
+			// goes back to normal
+			c[0].pos.x -= DELAY;
+			c[1].pos.x += DELAY;
 		}
 
-		if (H_WIDTH - c[0].pos.x < RADIUS && flag)
+		// this code is in charge for making the effect that both shapes
+		// start to collide
+		if (H_WIDTH - c[0].pos.x < RADIUS && centers_are_different)
 		{
 			for (int i = 0; i < PART_COUNT; ++i)
 			{
-				if (p[0][i].pos.x > c[0].pos.x)
-					p[0][i].pos = move(p[0][i].pos, p[0][i].vel, 1);
+				// both ifs make that only the right side from the left 
+				// shape is deforming, and the same with the left side
+				// of the right shape
+				if (p1[i].pos.x > (c[0].pos.x - DELAY))
+					p1[i].pos = move(p1[i].pos, p1[i].vel, -INCREMENT);
 
-				if (p[1][i].pos.x < c[1].pos.x)
-					p[1][i].pos = move(p[1][i].pos, p[1][i].vel, 0);
+				if (p2[i].pos.x < (c[1].pos.x + DELAY))
+					p2[i].pos = move(p2[i].pos, p2[i].vel, INCREMENT);
 			}
 		}
 
-//		char filename[64];
-//		snprintf(filename, 64, "screenshot_%04d.png", frameNumber);
-//		TakeScreenshot(filename);  // Saves the current frame as an image
-//		frameNumber++;
+//		char file_name[64];
+
+//		snprintf(file_name, 64, "screenshot_%04d.png", frame_number); // name of the output file
+//		TakeScreenshot(file_name);  // takes screenshot of the frame
+
+//		frame_number++;
 
 		EndDrawing();
 	}
