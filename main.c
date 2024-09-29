@@ -8,7 +8,7 @@
 #define H_WIDTH WIDTH/2.0f // half width
 #define H_HEIGHT HEIGHT/2.0f // half height
 #define HOLLOW_PURPLE (Color) { 192, 0, 192, 255 }
-#define PART_COUNT 10*1024 // amount of particles
+#define PART_COUNT 10*1024 // amount of pixels
 #define INCREMENT 0.05f
 #define SPEED 2
 #define RADIUS 50.0f 
@@ -20,7 +20,7 @@ typedef struct {
 	Color color;
 } Particle;
 
-// generates the initial position of all particles
+// generates the initial position of all pixels
 Particle gen_particles(Particle particle, Vector2 center, Color color);
 Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value);
 // generates the normal vector from a given vector
