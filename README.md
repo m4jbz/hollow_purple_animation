@@ -18,3 +18,5 @@ If you are using st terminal I recommend to use tmux to get a better look.
 ```bash
 ./main
 ```
+
+And of course to this two things to work you need to have installed raylib and all its dependencies.
