@@ -1,9 +1,5 @@
-# Animation of two stars colliding with each other
+# Animation/Simulation of Gojo's hollow purple technique
 
-## First step
+I try to make a simulation of the Gojo's hollow purple technique from Jujutsu Kaisen in C using [htts://raylib.com](raylib) library.
 
-[X] Draw two shapes moving and bouncing with corners of a square with raylib.
-
-[X] Make the circles have movement.
-
-[...] Make the collide animation itself.  
+The attract, move, get_normal and get_dist functions ara based on [https://github.com/codemaker4/raylib-particle-toy](CodeMaker4 raylib-particle-toy project).

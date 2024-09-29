@@ -8,7 +8,7 @@
 #define H_WIDTH WIDTH/2.0f // half width
 #define H_HEIGHT HEIGHT/2.0f // half height
 #define HOLLOW_PURPLE (Color) { 192, 0, 192, 255 }
-#define PART_COUNT 24*1024 // amount of particles
+#define PART_COUNT 10*1024 // amount of particles
 #define INCREMENT 0.05f
 #define SPEED 2
 #define RADIUS 50.0f 
@@ -25,7 +25,8 @@ Particle gen_particles(Particle particle, Vector2 center, Color color);
 Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value);
 // generates the normal vector from a given vector
 Vector2 get_normal(Vector2 pos, Vector2 center_pos);
-Vector2 do_friction(Vector2 vel, float amount);
+// reduces the velocity over time (more amount more velocity)
+Vector2 do_friction(Vector2 vel, float multiplier);
 Vector2 move(Vector2 pos, Vector2 vel, float increment);
 // using Pitagoras theorem it gets the distance between two positions (x, y)
 float get_dist(Vector2 pos, Vector2 center_pos);
@@ -93,16 +94,17 @@ Vector2 attract(Vector2 pos, Vector2 vel, Vector2 center_pos, float value)
     float dist = fmax(get_dist(pos, center_pos), value); // gets the max value between get_dist() and the given value
     Vector2 normal = get_normal(pos, center_pos);
 
-    vel.x -= normal.x/dist;
-    vel.y -= normal.y/dist;
+	// velocity gets decreased by some physics thing that i don't undertand
+    vel.x -= normal.x / dist;
+    vel.y -= normal.y / dist;
 
 	return vel;
 }
 
-Vector2 do_friction(Vector2 vel, float amount)
+Vector2 do_friction(Vector2 vel, float multiplier)
 {
-	vel.x *= amount;
-	vel.y *= amount;
+	vel.x *= multiplier;
+	vel.y *= multiplier;
 
 	return vel;
 }
@@ -120,6 +122,7 @@ Vector2 get_normal(Vector2 pos, Vector2 center_pos) {
 
     if (dist == 0.0f) dist = 1;
 
+	// gets the normal vector between pos and center_pos
     const float dx = pos.x - center_pos.x;
     const float dy = pos.y - center_pos.y;
     Vector2 normal = (Vector2){ dx / dist, dy / dist};
@@ -133,11 +136,6 @@ Vector2 move(Vector2 pos, Vector2 vel, float increment) {
 	pos.x += vel.x + increment;
 	pos.y += vel.y;
 
-    if (pos.x < 0) pos.x += WIDTH;
-    if (pos.x >= WIDTH) pos.x -= WIDTH;
-    if (pos.y < 0) pos.y += WIDTH;
-    if (pos.y >= WIDTH) pos.y -= WIDTH;
-
 	return pos;
 }
 
@@ -145,7 +143,7 @@ void draw(Particle** p, Particle* c)
 {
 	int centers_are_different = 1;
 //	int frame_number = 1;
-//
+
 	InitWindow(WIDTH, HEIGHT, "Hollow Purple Simulation");
 	SetTargetFPS(100); // fps
 
@@ -213,8 +211,8 @@ void draw(Particle** p, Particle* c)
 				// this is also a circle shape formation but now with the two
 				// initial shapes that became "just one" (not really, but
 				// it looks like that)
-				p1[i].vel = attract(p1[i].pos, p1[i].vel, c[0].pos, 0.1f);
-				p2[i].vel = attract(p2[i].pos, p2[i].vel, c[1].pos, 0.1f);
+				p1[i].vel = attract(p1[i].pos, p1[i].vel, c[0].pos, 0.075f);
+				p2[i].vel = attract(p2[i].pos, p2[i].vel, c[1].pos, 0.075f);
 
 				p1[i].vel = do_friction(p1[i].vel, 0.9f);
 				p2[i].vel = do_friction(p2[i].vel, 0.9f);
